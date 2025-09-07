@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mini Sudoku 4x4</title>
+  <style>
+    :root {
+      --bg-dark: #121212;
+      --bg-light: #ffffff;
+      --text-dark: #121212;
+      --text-light: #ffffff;
+      --accent: #000000;
+      --border: #cccccc;
+      --error: #ff5252;
+      --success: #4caf50;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: var(--bg-dark);
+      color: var(--text-light);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+      letter-spacing: 2px;
+      font-weight: 700;
+    }
+
+    .subtitle {
+      font-size: 1rem;
+      opacity: 0.8;
+      margin-bottom: 30px;
+    }
+
+    #game-container, #ranking-container {
+      background: var(--bg-light);
+      color: var(--text-dark);
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      width: 100%;
+      max-width: 500px;
+      text-align: center;
+      transition: 0.4s ease-in-out;
+    }
+
+    #ranking-container {
+      display: none;
+      animation: fadeIn 0.5s ease-in;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .timer {
+      font-size: 1.2rem;
+      margin: 15px 0;
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    .sudoku-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 2px;
+      margin: 20px auto;
+      max-width: 300px;
+    }
+
+    .cell {
+      aspect-ratio: 1;
+      background: var(--bg-light);
+      border: 2px solid var(--border);
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .cell input {
+      width: 90%;
+      height: 90%;
+      border: none;
+      text-align: center;
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: var(--text-dark);
+      background: transparent;
+    }
+
+    .cell input:focus {
+      outline: 2px solid var(--accent);
+      background: #f9f9f9;
+    }
+
+    .readonly {
+      background: #f0f0f0;
+      color: #555;
+    }
+
+    .error {
+      background: #ffebee !important;
+      border-color: var(--error) !important;
+    }
+
+    button {
+      margin: 10px 5px;
+      padding: 12px 24px;
+      font-size: 1rem;
+      font-weight: 600;
+      border: 2px solid var(--accent);
+      background: transparent;
+      color: var(--accent);
+      border-radius: 50px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    button:hover {
+      background: var(--accent);
+      color: var(--text-light);
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    .message {
+      margin: 15px 0;
+      min-height: 26px;
+      font-weight: 600;
+    }
+
+    .success { color: var(--success); }
+    .error-text { color: var(--error); }
+
+    /* Estilo para cuadrantes */
+    .sudoku-grid > div:nth-child(2n+1) { border-left-color: #000; }
+    .sudoku-grid > div:nth-child(2n) { border-right-color: #000; }
+    .sudoku-grid > div:nth-child(-n+4) { border-top-color: #000; }
+    .sudoku-grid > div:nth-child(n+5):nth-child(-n+8) { border-bottom-color: #000; }
+
+    /* Modal de nombre */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.7);
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .modal-content {
+      background: var(--bg-light);
+      color: var(--text-dark);
+      padding: 30px;
+      border-radius: 16px;
+      width: 90%;
+      max-width: 400px;
+      text-align: center;
+    }
+
+    .modal input {
+      width: 100%;
+      padding: 12px;
+      margin: 15px 0;
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      font-size: 1rem;
+      text-align: center;
+    }
+
+    .hidden { display: none; }
+
+    #ranking-list {
+      list-style: none;
+      padding: 0;
+      margin: 20px 0;
+    }
+
+    #ranking-list li {
+      padding: 12px 0;
+      border-bottom: 1px solid #eee;
+      font-size: 1.1rem;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    #ranking-list li strong {
+      color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+  <h1>MINI SUDOKU</h1>
+  <div class="subtitle">Completa con números del 1 al 4</div>
+
+  <!-- Contenedor del Juego -->
+  <div id="game-container">
+    <div class="timer" id="timer">Tiempo: 00:00</div>
+    <div class="message" id="message">✏️ ¡Completa el tablero!</div>
+    <div class="sudoku-grid" id="grid"></div>
+    <button id="check-btn">✅ Verificar</button>
+    <button id="new-game-btn">🔄 Reiniciar</button>
+  </div>
+
+  <!-- Modal para ingresar nombre -->
+  <div class="modal" id="name-modal">
+    <div class="modal-content">
+      <h2>🎉 ¡Ganaste!</h2>
+      <p>Tu tiempo: <strong id="final-time">00:00</strong></p>
+      <input type="text" id="player-name" placeholder="Ingresa tu nombre" maxlength="15" autocomplete="off">
+      <button id="save-score-btn">💾 Guardar y Ver Ranking</button>
+    </div>
+  </div>
+
+  <!-- Contenedor del Ranking -->
+  <div id="ranking-container" class="hidden">
+    <h2>🏆 Ranking</h2>
+    <ul id="ranking-list"></ul>
+    <button id="play-again-btn">▶️ Jugar de Nuevo</button>
+  </div>
+
+  <script>
+    // Solución base (puedes rotarla o randomizarla más adelante)
+    const solvedPuzzle = [
+      [1, 2, 3, 4],
+      [3, 4, 1, 2],
+      [2, 1, 4, 3],
+      [4, 3, 2, 1]
+    ];
+
+    let currentPuzzle = [];
+    let timerInterval;
+    let startTime;
+    let elapsedTime = 0;
+
+    // Iniciar temporizador
+    function startTimer() {
+      clearInterval(timerInterval);
+      startTime = Date.now() - elapsedTime;
+      timerInterval = setInterval(() => {
+        elapsedTime = Date.now() - startTime;
+        document.getElementById("timer").textContent = `Tiempo: ${formatTime(elapsedTime)}`;
+      }, 100);
+    }
+
+    function formatTime(ms) {
+      const totalSec = Math.floor(ms / 1000);
+      const minutes = Math.floor(totalSec / 60).toString().padStart(2, '0');
+      const seconds = (totalSec % 60).toString().padStart(2, '0');
+      return `${minutes}:${seconds}`;
+    }
+
+    // Generar puzzle con celdas vacías
+    function generatePuzzle(emptyCells = 8) {
+      // Copia profunda
+      let puzzle = JSON.parse(JSON.stringify(solvedPuzzle));
+      let positions = [];
+      for (let r = 0; r < 4; r++) {
+        for (let c = 0; c < 4; c++) {
+          positions.push([r, c]);
+        }
+      }
+
+      // Mezclar y vaciar celdas aleatorias
+      for (let i = positions.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [positions[i], positions[j]] = [positions[j], positions[i]];
+      }
+
+      for (let i = 0; i < emptyCells; i++) {
+        const [r, c] = positions[i];
+        puzzle[r][c] = 0;
+      }
+
+      return puzzle;
+    }
+
+    // Renderizar tablero
+    function renderGrid() {
+      const grid = document.getElementById("grid");
+      grid.innerHTML = "";
+
+      for (let r = 0; r < 4; r++) {
+        for (let c = 0; c < 4; c++) {
+          const cell = document.createElement("div");
+          cell.className = "cell";
+          const input = document.createElement("input");
+          input.type = "text";
+          input.maxLength = 1;
+          input.dataset.row = r;
+          input.dataset.col = c;
+
+          if (currentPuzzle[r][c] !== 0) {
+            input.value = currentPuzzle[r][c];
+            input.classList.add("readonly");
+            input.readOnly = true;
+          } else {
+            input.addEventListener("input", validateInput);
+          }
+
+          cell.appendChild(input);
+          grid.appendChild(cell);
+        }
+      }
+    }
+
+    function validateInput(e) {
+      let value = e.target.value;
+      if (!/^[1-4]?$/.test(value)) {
+        e.target.value = "";
+      }
+      
