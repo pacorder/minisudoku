@@ -14,6 +14,7 @@
       --border: #cccccc;
       --error: #ff5252;
       --success: #4caf50;
+      --selected: #e3f2fd;
     }
 
     * {
@@ -32,6 +33,7 @@
       justify-content: center;
       min-height: 100vh;
       padding: 20px;
+      overflow-x: hidden;
     }
 
     h1 {
@@ -92,6 +94,14 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      transition: background-color 0.2s, border-color 0.2s;
+      cursor: pointer;
+    }
+
+    .cell.selected {
+      background: var(--selected);
+      border-color: #1976d2;
+      box-shadow: inset 0 0 0 2px #1976d2;
     }
 
     .cell input {
@@ -103,11 +113,7 @@
       font-weight: bold;
       color: var(--text-dark);
       background: transparent;
-    }
-
-    .cell input:focus {
-      outline: 2px solid var(--accent);
-      background: #f9f9f9;
+      pointer-events: none; /* El input ya no recibe clics */
     }
 
     .readonly {
@@ -115,12 +121,42 @@
       color: #555;
     }
 
-    .error {
+    .error-cell {
       background: #ffebee !important;
       border-color: var(--error) !important;
     }
 
-    button {
+    .number-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin: 20px 0;
+    }
+
+    .number-btn {
+      width: 50px;
+      height: 50px;
+      font-size: 1.5rem;
+      font-weight: bold;
+      border: 2px solid var(--accent);
+      background: var(--bg-light);
+      color: var(--accent);
+      border-radius: 50%;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .number-btn:hover {
+      background: var(--accent);
+      color: var(--text-light);
+      transform: scale(1.05);
+    }
+
+    .number-btn:active {
+      transform: scale(0.95);
+    }
+
+    button.action-btn {
       margin: 10px 5px;
       padding: 12px 24px;
       font-size: 1rem;
@@ -133,12 +169,12 @@
       transition: all 0.3s ease;
     }
 
-    button:hover {
+    button.action-btn:hover {
       background: var(--accent);
       color: var(--text-light);
     }
 
-    button:active {
+    button.action-btn:active {
       transform: scale(0.98);
     }
 
@@ -152,10 +188,10 @@
     .error-text { color: var(--error); }
 
     /* Estilo para cuadrantes */
-    .sudoku-grid > div:nth-child(2n+1) { border-left-color: #000; }
-    .sudoku-grid > div:nth-child(2n) { border-right-color: #000; }
     .sudoku-grid > div:nth-child(-n+4) { border-top-color: #000; }
     .sudoku-grid > div:nth-child(n+5):nth-child(-n+8) { border-bottom-color: #000; }
+    .sudoku-grid > div:nth-child(4n+1) { border-left-color: #000; }
+    .sudoku-grid > div:nth-child(4n) { border-right-color: #000; }
 
     /* Modal de nombre */
     .modal {
@@ -180,6 +216,7 @@
       width: 90%;
       max-width: 400px;
       text-align: center;
+      position: relative;
     }
 
     .modal input {
@@ -211,19 +248,45 @@
     #ranking-list li strong {
       color: var(--accent);
     }
+
+    /* Confetti */
+    #confetti-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    .confetti {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      opacity: 0;
+    }
   </style>
 </head>
 <body>
   <h1>MINI SUDOKU</h1>
-  <div class="subtitle">Completa con números del 1 al 4</div>
+  <div class="subtitle">Selecciona una celda y elige un número</div>
 
   <!-- Contenedor del Juego -->
   <div id="game-container">
     <div class="timer" id="timer">Tiempo: 00:00</div>
-    <div class="message" id="message">✏️ ¡Completa el tablero!</div>
+    <div class="message" id="message">✏️ Selecciona una celda vacía y elige un número</div>
     <div class="sudoku-grid" id="grid"></div>
-    <button id="check-btn">✅ Verificar</button>
-    <button id="new-game-btn">🔄 Reiniciar</button>
+
+    <div class="number-buttons">
+      <button class="number-btn" data-num="1">1</button>
+      <button class="number-btn" data-num="2">2</button>
+      <button class="number-btn" data-num="3">3</button>
+      <button class="number-btn" data-num="4">4</button>
+    </div>
+
+    <button class="action-btn" id="check-btn">✅ Verificar</button>
+    <button class="action-btn" id="new-game-btn">🔄 Reiniciar</button>
   </div>
 
   <!-- Modal para ingresar nombre -->
@@ -232,7 +295,7 @@
       <h2>🎉 ¡Ganaste!</h2>
       <p>Tu tiempo: <strong id="final-time">00:00</strong></p>
       <input type="text" id="player-name" placeholder="Ingresa tu nombre" maxlength="15" autocomplete="off">
-      <button id="save-score-btn">💾 Guardar y Ver Ranking</button>
+      <button class="action-btn" id="save-score-btn">💾 Guardar y Ver Ranking</button>
     </div>
   </div>
 
@@ -240,11 +303,17 @@
   <div id="ranking-container" class="hidden">
     <h2>🏆 Ranking</h2>
     <ul id="ranking-list"></ul>
-    <button id="play-again-btn">▶️ Jugar de Nuevo</button>
+    <button class="action-btn" id="play-again-btn">▶️ Jugar de Nuevo</button>
   </div>
 
+  <!-- Contenedor de confeti -->
+  <div id="confetti-container"></div>
+
+  <!-- Sonido de victoria -->
+  <audio id="win-sound" src="https://assets.mixkit.co/active_storage/sfx/2901/2901-preview.mp3" preload="auto"></audio>
+
   <script>
-    // Solución base (puedes rotarla o randomizarla más adelante)
+    // Solución base
     const solvedPuzzle = [
       [1, 2, 3, 4],
       [3, 4, 1, 2],
@@ -256,6 +325,7 @@
     let timerInterval;
     let startTime;
     let elapsedTime = 0;
+    let selectedCell = null;
 
     // Iniciar temporizador
     function startTimer() {
@@ -274,9 +344,8 @@
       return `${minutes}:${seconds}`;
     }
 
-    // Generar puzzle con celdas vacías
+    // Generar puzzle
     function generatePuzzle(emptyCells = 8) {
-      // Copia profunda
       let puzzle = JSON.parse(JSON.stringify(solvedPuzzle));
       let positions = [];
       for (let r = 0; r < 4; r++) {
@@ -285,7 +354,7 @@
         }
       }
 
-      // Mezclar y vaciar celdas aleatorias
+      // Shuffle
       for (let i = positions.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [positions[i], positions[j]] = [positions[j], positions[i]];
@@ -308,18 +377,19 @@
         for (let c = 0; c < 4; c++) {
           const cell = document.createElement("div");
           cell.className = "cell";
+          cell.dataset.row = r;
+          cell.dataset.col = c;
+
           const input = document.createElement("input");
           input.type = "text";
-          input.maxLength = 1;
-          input.dataset.row = r;
-          input.dataset.col = c;
+          input.readOnly = true; // Solo lectura, no se edita con teclado
 
           if (currentPuzzle[r][c] !== 0) {
             input.value = currentPuzzle[r][c];
             input.classList.add("readonly");
-            input.readOnly = true;
+            cell.classList.add("readonly");
           } else {
-            input.addEventListener("input", validateInput);
+            cell.addEventListener("click", () => selectCell(cell, r, c));
           }
 
           cell.appendChild(input);
@@ -328,9 +398,247 @@
       }
     }
 
-    function validateInput(e) {
-      let value = e.target.value;
-      if (!/^[1-4]?$/.test(value)) {
-        e.target.value = "";
+    // Seleccionar celda
+    function selectCell(cellElement, row, col) {
+      // Deseleccionar anterior
+      if (selectedCell) {
+        selectedCell.classList.remove("selected");
       }
-      
+
+      // Seleccionar nueva
+      cellElement.classList.add("selected");
+      selectedCell = cellElement;
+      showMessage(`Celda seleccionada: (${row+1}, ${col+1}). Elige un número.`, "");
+    }
+
+    // Colocar número en celda seleccionada
+    function placeNumber(num) {
+      if (!selectedCell) {
+        showMessage("❌ Primero selecciona una celda vacía", "error-text");
+        return;
+      }
+
+      const input = selectedCell.querySelector("input");
+      input.value = num;
+
+      // Eliminar error si lo tenía
+      selectedCell.classList.remove("error-cell");
+
+      showMessage(`Número ${num} colocado. Selecciona otra celda.`, "");
+    }
+
+    function clearErrors() {
+      document.querySelectorAll(".error-cell").forEach(el => el.classList.remove("error-cell"));
+    }
+
+    // Verificar solución
+    function checkSolution() {
+      clearErrors();
+      let isComplete = true;
+
+      const userBoard = [];
+      for (let r = 0; r < 4; r++) {
+        userBoard[r] = [];
+        for (let c = 0; c < 4; c++) {
+          const input = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"] input`);
+          const val = input.value === "" ? 0 : parseInt(input.value);
+          userBoard[r][c] = val;
+          if (val === 0) isComplete = false;
+        }
+      }
+
+      if (!isComplete) {
+        showMessage("❌ Tablero incompleto", "error-text");
+        return;
+      }
+
+      let hasErrors = false;
+
+      // Validar filas
+      for (let r = 0; r < 4; r++) {
+        const row = [...userBoard[r]];
+        if (!isValidGroup(row)) {
+          for (let c = 0; c < 4; c++) {
+            markCellError(r, c);
+          }
+          hasErrors = true;
+        }
+      }
+
+      // Validar columnas
+      for (let c = 0; c < 4; c++) {
+        const col = [userBoard[0][c], userBoard[1][c], userBoard[2][c], userBoard[3][c]];
+        if (!isValidGroup(col)) {
+          for (let r = 0; r < 4; r++) {
+            markCellError(r, c);
+          }
+          hasErrors = true;
+        }
+      }
+
+      // Validar cuadrantes
+      for (let qr = 0; qr < 2; qr++) {
+        for (let qc = 0; qc < 2; qc++) {
+          const quadCells = [
+            [qr*2, qc*2],
+            [qr*2, qc*2+1],
+            [qr*2+1, qc*2],
+            [qr*2+1, qc*2+1]
+          ];
+          const quad = quadCells.map(([r, c]) => userBoard[r][c]);
+          if (!isValidGroup(quad)) {
+            quadCells.forEach(([r, c]) => markCellError(r, c));
+            hasErrors = true;
+          }
+        }
+      }
+
+      if (hasErrors) {
+        showMessage("❌ Hay errores en las celdas marcadas", "error-text");
+      } else {
+        celebrateWin();
+      }
+    }
+
+    function isValidGroup(group) {
+      const seen = new Set();
+      for (let num of group) {
+        if (num < 1 || num > 4 || seen.has(num)) {
+          return false;
+        }
+        seen.add(num);
+      }
+      return true;
+    }
+
+    function markCellError(row, col) {
+      const cell = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+      if (cell) cell.classList.add("error-cell");
+    }
+
+    function showMessage(text, className = "") {
+      const msgDiv = document.getElementById("message");
+      msgDiv.textContent = text;
+      msgDiv.className = "message " + className;
+    }
+
+    // ¡Celebrar victoria!
+    function celebrateWin() {
+      clearInterval(timerInterval);
+      document.getElementById("final-time").textContent = formatTime(elapsedTime);
+
+      // Reproducir sonido
+      const winSound = document.getElementById("win-sound");
+      winSound.currentTime = 0;
+      winSound.play().catch(e => console.log("Audio play failed:", e));
+
+      // Lanzar confeti
+      launchConfetti();
+
+      // Mostrar modal
+      setTimeout(() => {
+        document.getElementById("name-modal").style.display = "flex";
+      }, 1000);
+    }
+
+    // Confeti animado
+    function launchConfetti() {
+      const confettiContainer = document.getElementById("confetti-container");
+      confettiContainer.innerHTML = "";
+
+      for (let i = 0; i < 150; i++) {
+        const confetti = document.createElement("div");
+        confetti.className = "confetti";
+        confetti.style.left = Math.random() * 100 + "vw";
+        confetti.style.backgroundColor = `hsl(${Math.random() * 360}, 100%, 50%)`;
+        confetti.style.transform = `rotate(${Math.random() * 360}deg)`;
+        confettiContainer.appendChild(confetti);
+
+        // Animar
+        const duration = 2 + Math.random() * 3;
+        const delay = Math.random() * 1;
+        confetti.animate(
+          [
+            { transform: `translateY(-100vh) rotate(0deg)`, opacity: 1 },
+            { transform: `translateY(100vh) rotate(${360 + Math.random() * 720}deg)`, opacity: 0 }
+          ],
+          {
+            duration: duration * 1000,
+            delay: delay * 1000,
+            easing: "cubic-bezier(0.1, 0.9, 0.4, 1)",
+            fill: "forwards"
+          }
+        );
+      }
+    }
+
+    // Guardar puntuación
+    function saveScore() {
+      const name = document.getElementById("player-name").value.trim() || "Anónimo";
+      const time = elapsedTime;
+      const formattedTime = formatTime(time);
+
+      const scores = getScores();
+      scores.push({ name, time, formattedTime });
+      scores.sort((a, b) => a.time - b.time);
+      localStorage.setItem("sudokuScores", JSON.stringify(scores.slice(0, 10)));
+
+      showRanking();
+    }
+
+    function getScores() {
+      const scores = localStorage.getItem("sudokuScores");
+      return scores ? JSON.parse(scores) : [];
+    }
+
+    function showRanking() {
+      document.getElementById("name-modal").style.display = "none";
+      document.getElementById("game-container").classList.add("hidden");
+      document.getElementById("ranking-container").classList.remove("hidden");
+
+      const list = document.getElementById("ranking-list");
+      list.innerHTML = "";
+      const scores = getScores();
+
+      scores.forEach((score, index) => {
+        const li = document.createElement("li");
+        li.innerHTML = `<strong>${index + 1}. ${score.name}</strong> <span>${score.formattedTime}</span>`;
+        list.appendChild(li);
+      });
+    }
+
+    // Iniciar nuevo juego
+    function startNewGame() {
+      currentPuzzle = generatePuzzle(8);
+      renderGrid();
+      showMessage("✏️ Selecciona una celda vacía y elige un número", "");
+      elapsedTime = 0;
+      document.getElementById("timer").textContent = "Tiempo: 00:00";
+      startTimer();
+      document.getElementById("confetti-container").innerHTML = "";
+      selectedCell = null;
+    }
+
+    // Eventos
+    document.getElementById("check-btn").addEventListener("click", checkSolution);
+    document.getElementById("new-game-btn").addEventListener("click", startNewGame);
+    document.getElementById("save-score-btn").addEventListener("click", saveScore);
+    document.getElementById("play-again-btn").addEventListener("click", () => {
+      document.getElementById("ranking-container").classList.add("hidden");
+      document.getElementById("game-container").classList.remove("hidden");
+      startNewGame();
+    });
+
+    // Eventos para botones numéricos
+    document.querySelectorAll(".number-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const num = btn.dataset.num;
+        placeNumber(num);
+      });
+    });
+
+    // Iniciar primer juego
+    startNewGame();
+  </script>
+</body>
+</html>
